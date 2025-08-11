@@ -44,6 +44,10 @@ export class TeamsComponent {
         } else if (userRole.type === 'branch') {
             const team = await this.firestoreService.getTeam(userRole.teamId);
             this.teams = team ? [team] : [];
+        }
+        else if (userRole.type === 'subTeam') {
+            const team = await this.firestoreService.getTeam(userRole.teamId);
+            this.teams = team ? [team] : [];
         } else {
             this.teams = [];
         }
@@ -778,8 +782,23 @@ export class TeamsComponent {
         try {
             if (editId) {
                 await this.firestoreService.updateTeam(editId, teamData);
+                // Update local data structure
+                const teamIndex = this.teams.findIndex(t => t.id === editId);
+                if (teamIndex !== -1) {
+                    this.teams[teamIndex] = {
+                        ...this.teams[teamIndex],
+                        ...teamData
+                    };
+                }
             } else {
-                await this.firestoreService.createTeam(teamData);
+                const newTeam = await this.firestoreService.createTeam(teamData);
+                // Add new team to local data structure
+                if (newTeam) {
+                    if (!this.teams) {
+                        this.teams = [];
+                    }
+                    this.teams.push(newTeam);
+                }
             }
 
             this.closeModal('team-modal');
@@ -803,8 +822,24 @@ export class TeamsComponent {
         try {
             if (editId) {
                 await this.firestoreService.updateSubTeam(this.selectedTeam.id, editId, subTeamData);
+                // Update local data structure
+                const subTeamIndex = this.selectedTeam.subTeams.findIndex(st => st.id === editId);
+                if (subTeamIndex !== -1) {
+                    this.selectedTeam.subTeams[subTeamIndex] = {
+                        ...this.selectedTeam.subTeams[subTeamIndex],
+                        ...subTeamData
+                    };
+                }
             } else {
-                await this.firestoreService.createSubTeam(this.selectedTeam.id, subTeamData);
+                const newSubTeam = await this.firestoreService.createSubTeam(this.selectedTeam.id, subTeamData);
+                // Add new subteam to local data structure
+
+                if (newSubTeam) {
+                    if (!this.selectedTeam.subTeams) {
+                        this.selectedTeam.subTeams = [];
+                    }
+                    this.selectedTeam.subTeams.push(newSubTeam);
+                }
             }
 
             this.closeModal('subteam-modal');
@@ -835,16 +870,39 @@ export class TeamsComponent {
                     editId,
                     memberData
                 );
+
+                // Update local data structure
+                const memberIndex = this.selectedSubTeam.members.findIndex(m => m.id === editId);
+                if (memberIndex !== -1) {
+                    this.selectedSubTeam.members[memberIndex] = {
+                        ...this.selectedSubTeam.members[memberIndex],
+                        ...memberData
+                    };
+                }
             } else {
-                await this.firestoreService.createMember(
+                const newMember = await this.firestoreService.createMember(
                     this.selectedTeam.id,
                     this.selectedSubTeam.id,
                     memberData
                 );
+
+                // Add new member to local data structure
+                if (newMember) {
+                    if (!this.selectedSubTeam.members) {
+                        this.selectedSubTeam.members = [];
+                    }
+                    this.selectedSubTeam.members.push(newMember);
+                }
             }
 
             this.closeModal('member-modal');
-            await this.render(document.getElementById('main-content'));
+
+            // Re-render just the current view instead of reloading all data
+            const container = document.getElementById('main-content');
+            container.innerHTML = this.getHTML();
+            this.i18n.updateTranslations();
+            this.attachEventListeners();
+
         } catch (error) {
             console.error('Error saving member:', error);
             alert(this.i18n.t('error.unknown'));
@@ -855,7 +913,19 @@ export class TeamsComponent {
     async deleteTeam(teamId) {
         try {
             await this.firestoreService.deleteTeam(teamId);
-            await this.render(document.getElementById('main-content'));
+
+            // Remove team from local data structure
+            const teamIndex = this.teams.findIndex(t => t.id === teamId);
+            if (teamIndex !== -1) {
+                this.teams.splice(teamIndex, 1);
+            }
+
+            // Re-render just the current view
+            const container = document.getElementById('main-content');
+            container.innerHTML = this.getHTML();
+            this.i18n.updateTranslations();
+            this.attachEventListeners();
+
         } catch (error) {
             console.error('Error deleting team:', error);
             alert(this.i18n.t('error.unknown'));
@@ -865,7 +935,17 @@ export class TeamsComponent {
     async deleteSubTeam(subTeamId) {
         try {
             await this.firestoreService.deleteSubTeam(this.selectedTeam.id, subTeamId);
-            await this.render(document.getElementById('main-content'));
+            // Remove team from local data structure
+            const subteamIndex = this.selectedTeam.subTeams.findIndex(t => t.id === subTeamId);
+            if (subteamIndex !== -1) {
+                this.selectedTeam.subTeams.splice(subteamIndex, 1);               
+            }
+
+            // Re-render just the current view
+            const container = document.getElementById('main-content');
+            container.innerHTML = this.getHTML();
+            this.i18n.updateTranslations();
+            this.attachEventListeners();
         } catch (error) {
             console.error('Error deleting subteam:', error);
             alert(this.i18n.t('error.unknown'));
@@ -879,7 +959,19 @@ export class TeamsComponent {
                 this.selectedSubTeam.id,
                 memberId
             );
-            await this.render(document.getElementById('main-content'));
+
+            // Remove member from local data structure
+            const memberIndex = this.selectedSubTeam.members.findIndex(m => m.id === memberId);
+            if (memberIndex !== -1) {
+                this.selectedSubTeam.members.splice(memberIndex, 1);
+            }
+
+            // Re-render just the current view instead of full render
+            const container = document.getElementById('main-content');
+            container.innerHTML = this.getHTML();
+            this.i18n.updateTranslations();
+            this.attachEventListeners();
+
         } catch (error) {
             console.error('Error deleting member:', error);
             alert(this.i18n.t('error.unknown'));

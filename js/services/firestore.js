@@ -36,15 +36,42 @@ export class FirestoreService {
         }
 
         try {
-            const docRef = await db.collection('teams').add({
+            // Generate custom team ID
+            const teamId = await this.generateTeamId();
+
+            // Use set() instead of add() to specify custom ID
+            await db.collection('teams').doc(teamId).set({
                 ...teamData,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 createdBy: this.authService.getCurrentUser().uid
             });
-            return docRef.id;
+
+            // Return the team object with the custom ID
+            return {
+                id: teamId,
+                ...teamData
+            };
         } catch (error) {
             console.error('Error creating team:', error);
             throw error;
+        }
+    }
+    // Helper function to generate custom team ID
+    async generateTeamId() {
+        try {
+            // Get existing teams to determine the next number
+            const teamsSnapshot = await db.collection('teams').get();
+
+            const teamCount = teamsSnapshot.size;
+            const nextTeamNumber = teamCount + 1;
+
+            // Format: team_number
+            // Example: team_1, team_2, etc.
+            return `team_${nextTeamNumber}`;
+        } catch (error) {
+            console.error('Error generating team ID:', error);
+            // Fallback to timestamp-based ID if there's an error
+            return `team_${Date.now()}`;
         }
     }
 
@@ -85,7 +112,6 @@ export class FirestoreService {
             throw error;
         }
     }
-
     // SubTeams
     async getSubTeams(teamId) {
         try {
@@ -99,6 +125,25 @@ export class FirestoreService {
         } catch (error) {
             console.error('Error getting subteams:', error);
             throw error;
+        }
+    }
+    // Helper function to generate custom subteam ID
+    async generateSubTeamId(teamId) {
+        try {
+            // Get existing subteams to determine the next number
+            const subTeamsSnapshot = await db.collection('teams').doc(teamId)
+                .collection('subTeams').get();
+
+            const subTeamCount = subTeamsSnapshot.size;
+            const nextSubTeamNumber = subTeamCount + 1;
+
+            // Format: teamId_subteam_number
+            // Example: team_1_subteam_1, team_1_subteam_2, etc.
+            return `${teamId}_${nextSubTeamNumber}`;
+        } catch (error) {
+            console.error('Error generating subteam ID:', error);
+            // Fallback to timestamp-based ID if there's an error
+            return `${teamId}_${Date.now()}`;
         }
     }
 
@@ -123,13 +168,22 @@ export class FirestoreService {
         }
 
         try {
-            const docRef = await db.collection('teams').doc(teamId)
-                .collection('subTeams').add({
+            // Generate custom subteam ID
+            const subTeamId = await this.generateSubTeamId(teamId);
+
+            // Use set() instead of add() to specify custom ID
+            await db.collection('teams').doc(teamId)
+                .collection('subTeams').doc(subTeamId).set({
                     ...subTeamData,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     createdBy: this.authService.getCurrentUser().uid
                 });
-            return docRef.id;
+
+            // Return the subteam object with the custom ID
+            return {
+                id: subTeamId,
+                ...subTeamData
+            };
         } catch (error) {
             console.error('Error creating subteam:', error);
             throw error;
@@ -176,7 +230,6 @@ export class FirestoreService {
             throw error;
         }
     }
-
     // Members
     async getMembers(teamId, subTeamId) {
         try {
@@ -214,19 +267,47 @@ export class FirestoreService {
         if (!this.authService.canManageSubTeam(subTeamId)) {
             throw new Error('Unauthorized');
         }
-
         try {
-            const docRef = await db.collection('teams').doc(teamId)
+            // Generate custom member ID
+            const memberId = await this.generateMemberId(teamId, subTeamId);
+
+            // Use set() instead of add() to specify custom ID
+            await db.collection('teams').doc(teamId)
                 .collection('subTeams').doc(subTeamId)
-                .collection('members').add({
+                .collection('members').doc(memberId).set({
                     ...memberData,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     createdBy: this.authService.getCurrentUser().uid
                 });
-            return docRef.id;
+
+            // Return the member object with the custom ID
+            return {
+                id: memberId,
+                ...memberData
+            };
         } catch (error) {
             console.error('Error creating member:', error);
             throw error;
+        }
+    }
+    // Helper function to generate custom member ID
+    async generateMemberId(teamId, subTeamId) {
+        try {
+            // Get existing members to determine the next number
+            const membersSnapshot = await db.collection('teams').doc(teamId)
+                .collection('subTeams').doc(subTeamId)
+                .collection('members').get();
+
+            const memberCount = membersSnapshot.size;
+            const nextMemberNumber = memberCount + 1;
+
+            // Format: teamId_subTeamId_member_number
+            // Example: sheraton_707_member_1
+            return `${subTeamId}_member_${nextMemberNumber}`;
+        } catch (error) {
+            console.error('Error generating member ID:', error);
+            // Fallback to timestamp-based ID if there's an error
+            return `${subTeamId}_member_${Date.now()}`;
         }
     }
 
