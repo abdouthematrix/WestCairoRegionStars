@@ -5,6 +5,7 @@ export class LeaderboardComponent {
         this.firestoreService = firestoreService;
         this.i18n = i18n;
         this.data = [];
+        this.selectedDate = ''; // Add this line
     }
 
     async render(container) {
@@ -20,7 +21,11 @@ export class LeaderboardComponent {
             `;
 
             // Load leaderboard data
-            this.data = await this.firestoreService.getLeaderboardData();
+            const filters = {};
+            if (this.selectedDate) {
+                filters.date = this.selectedDate;
+            }
+            this.data = await this.firestoreService.getLeaderboardData(filters);
 
             // Render leaderboard
             container.innerHTML = this.getHTML();
@@ -43,12 +48,33 @@ export class LeaderboardComponent {
 
     getHTML() {
         return `
-            <div class="container fade-in">
+           <div class="container fade-in">
                 <div class="mb-4">
                     <h1 class="text-center mb-4">
                         <i class="fas fa-trophy text-warning"></i>
                         <span data-i18n="leaderboard">Leaderboard</span>
                     </h1>
+
+                    <!-- ADD THIS FILTER SECTION -->
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <div class="flex items-center gap-3">
+                                <div class="form-group">
+                                    <label data-i18n="date">Date</label>
+                                    <input type="date" id="date-filter" value="${this.selectedDate}">
+                                </div>
+                                <button class="btn btn-secondary" id="filter-leaderboard">
+                                    <i class="fas fa-filter"></i>
+                                    <span data-i18n="filter">Filter</span>
+                                </button>
+                                <button class="btn btn-outline" id="clear-filter">
+                                    <i class="fas fa-times"></i>
+                                    <span data-i18n="showAll">Show All</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- END FILTER SECTION -->
                     
                     <div class="card">
                         <div class="card-header">
@@ -137,6 +163,29 @@ export class LeaderboardComponent {
     }
 
     attachEventListeners() {
+        // ADD THESE EVENT LISTENERS
+        const dateFilter = document.getElementById('date-filter');
+        const filterBtn = document.getElementById('filter-leaderboard');
+        const clearBtn = document.getElementById('clear-filter');
+
+        if (dateFilter) {
+            dateFilter.addEventListener('change', () => {
+                this.selectedDate = dateFilter.value;
+            });
+        }
+
+        if (filterBtn) {
+            filterBtn.addEventListener('click', async () => {
+                await this.render(document.getElementById('main-content'));
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', async () => {
+                this.selectedDate = '';
+                await this.render(document.getElementById('main-content'));
+            });
+        }
         const refreshBtn = document.getElementById('refresh-leaderboard');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', async () => {

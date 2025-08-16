@@ -494,11 +494,11 @@ export class FirestoreService {
     }
 
     // Leaderboard data aggregation
-    async getLeaderboardData() {
+    async getLeaderboardData(filters = {}) {
         try {
             // Get all scores, teams, subteams, members, and leaders
             const [scores, teams, leaders] = await Promise.all([
-                this.getScores(),
+                this.getScores(filters),
                 this.getTeams(),
                 this.getLeaders()
             ]);
