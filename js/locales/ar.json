@@ -90,5 +90,22 @@
   "unsecuredLoan": "قرض بدون ضمان",
   "securedCreditCard": "كريديت بضمان",
   "unsecuredCreditCard": "كريديت بدون ضمان",
-  "bancassurance": "تامين بنكي"
+  "bancassurance": "تامين بنكي",
+  "achieversTitle": "نجوم غرب القاهرة",
+  "achieversCondition": "منتجان أو أكثر",
+  "noAchievers": "لا يوجد نجوم",
+  "qualifiedTeamsTitle": "الفرق المؤهلة",
+  "qualifiedTeamsCondition": "جميع الأعضاء المتاحين نشطون",
+  "active": "نشط",
+  "noQualifiedTeams": "لا توجد فرق مؤهلة",
+  "qualifiedLeadersTitle": "قادة الفرق المؤهلون",
+  "availableMembers": "أعضاء متاحون",
+  "noQualifiedLeaders": "لا يوجد قادة مؤهلون",
+  "zeroScoreTeamsTitle": "فرق بدون نقاط",
+  "count": "العدد",
+  "zeroScoreMembers": "أعضاء بدون نقاط",
+  "teamLeader": "قائد الفريق",
+  "noLeader": "لا يوجد قائد",
+  "allActive": "جميع الفرق نشطة بالكامل! 🎉",
+  "clear": "ازالة"
 }

@@ -1,11 +1,12 @@
-import { ImageUtils } from '../utils/image-utils.js';
+﻿import { ImageUtils } from '../utils/image-utils.js';
+import { DateUtils } from '../utils/date-utils.js';
 
 export class LeaderboardComponent {
     constructor(firestoreService, i18n) {
         this.firestoreService = firestoreService;
         this.i18n = i18n;
         this.data = [];
-        this.selectedDate = ''; // Add this line
+        this.selectedDate = DateUtils.getTodayString();
     }
 
     async render(container) {
@@ -67,25 +68,16 @@ export class LeaderboardComponent {
                                     <i class="fas fa-filter"></i>
                                     <span data-i18n="filter">Filter</span>
                                 </button>
-                                <button class="btn btn-outline" id="clear-filter">
+                                <button class="btn btn-primary" id="clear-filter">
                                     <i class="fas fa-times"></i>
-                                    <span data-i18n="showAll">Show All</span>
+                                    <span data-i18n="clear">clear</span>
                                 </button>
                             </div>
                         </div>
                     </div>
                     <!-- END FILTER SECTION -->
                     
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="flex items-center justify-between">
-                                <h3 class="mb-0" data-i18n="leaderboard">Leaderboard</h3>
-                                <button class="btn btn-secondary btn-sm" id="refresh-leaderboard">
-                                    <i class="fas fa-sync-alt"></i>
-                                    <span>R</span>
-                                </button>
-                            </div>
-                        </div>
+                    <div class="card">                       
                         <div class="card-body p-0">
                             ${this.renderLeaderboard()}
                         </div>
@@ -96,70 +88,224 @@ export class LeaderboardComponent {
     }
 
     renderLeaderboard() {
-        if (!this.data || this.data.length === 0) {
+        if (!this.data || !this.data.all || this.data.all.length === 0) {
             return `
-                <div class="text-center p-4">
-                    <i class="fas fa-chart-line fa-3x text-secondary mb-3"></i>
-                    <h3 data-i18n="noData">No data available</h3>
-                </div>
-            `;
+            <div class="text-center p-4">
+                <i class="fas fa-chart-line fa-3x text-secondary mb-3"></i>
+                <h3 data-i18n="noData">No data available</h3>
+            </div>
+        `;
         }
 
-        return this.data.map((entry, index) => {
-            const memberImage = entry.member.imageBase64 ||
-                ImageUtils.getDefaultAvatar(entry.member.name);
-            const subTeamLeaderImage = entry.subTeam.leader?.imageBase64 ||
-                ImageUtils.getDefaultAvatar(entry.subTeam.leader?.name || 'Leader');
-            const teamLeaderImage = entry.team.leader?.imageBase64 ||
-                ImageUtils.getDefaultAvatar(entry.team.leader?.name || 'Leader');
+        return `
+    <!-- Achievers Section -->
+    <div class="mb-4">
+        <h4 class="bg-success text-white p-2 mb-2">
+            <i class="fas fa-star"></i> 
+            <span data-i18n="achieversTitle">Achievers</span> (${this.data.achievers.length}) - 
+            <span data-i18n="achieversCondition">2+ Products</span>
+        </h4>
+        ${this.data.achievers.length > 0 ?
+                this.data.achievers.slice(0, 10).map((entry, index) => this.renderMemberRow(entry, index)).join('') :
+                '<p class="text-center p-2 text-secondary" data-i18n="noAchievers">No achievers found</p>'
+            }
+    </div>
 
-            return `
-                <div class="leaderboard-item ${index < 3 ? 'top-performer' : ''}">
-                    <div class="flex items-center gap-4 w-full">
-                        <!-- Member Info -->
-                        <div class="flex items-center gap-3">
-                            <img src="${memberImage}" alt="${entry.member.name}" class="member-image">
-                            <div class="member-info">
-                                <div class="member-name">${entry.member.name}</div>
-                                <div class="text-sm text-secondary">${entry.member.position || ''}</div>
+    <!-- Team Leaders Section -->
+<div class="mb-4">
+    <h4 class="bg-info text-white p-2 mb-2">
+        <i class="fas fa-crown"></i>
+        <span data-i18n="qualifiedLeadersTitle">Qualified Team Leaders</span> (${this.data.teamLeaders.length})
+    </h4>
+    ${this.data.teamLeaders.length > 0 ?
+                this.data.teamLeaders.slice(0, 10).map((leader, index) => this.renderLeaderRow(leader, index)).join('') :
+                '<p class="text-center p-2 text-secondary" data-i18n="noQualifiedLeaders">No qualified team leaders</p>'
+        }
+</div>
+
+    <!-- Active Teams Section -->
+    <div class="mb-4">
+        <h4 class="bg-primary text-white p-2 mb-2">
+            <i class="fas fa-users"></i> 
+            <span data-i18n="qualifiedTeamsTitle">Qualified Teams</span> (${this.data.activeTeams.length}) - 
+            <span data-i18n="qualifiedTeamsCondition">All Available Members Active</span>
+        </h4>
+        ${this.data.activeTeams.length > 0 ?
+                this.data.activeTeams.map(team => `
+                <div class="border p-3 mb-2">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <strong>${team.name}</strong>
+                            <div class="text-sm text-secondary">
+                                ${team.activeMembers}/${team.availableMembers} <span data-i18n="active">active</span>
+                                ${team.unavailableCount > 0 ? ` (${team.unavailableCount} <span data-i18n="unavailable">unavailable</span>)` : ''}
                             </div>
                         </div>
-
-                        <!-- Sub-Team Info -->
-                        <div class="flex items-center gap-2 flex-1">
-                            <div class="sub-team-color" style="background: ${entry.subTeam.color || '#3182ce'}; width: 12px; height: 12px; border-radius: 50%;"></div>
-                            <div>
-                                <div class="font-medium">${entry.subTeam.name}</div>
-                                ${entry.subTeam.leader ? `
-                                    <div class="flex items-center gap-1 text-sm text-secondary">
-                                        <img src="${subTeamLeaderImage}" alt="${entry.subTeam.leader.name}" class="leader-image" style="width: 20px; height: 20px;">
-                                        <span>${entry.subTeam.leader.name}</span>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-
-                        <!-- Team Info -->
-                        <div class="flex items-center gap-2">
-                            <div>
-                                <div class="font-medium">${entry.team.name}</div>
-                                ${entry.team.leader ? `
-                                    <div class="flex items-center gap-1 text-sm text-secondary">
-                                        <img src="${teamLeaderImage}" alt="${entry.team.leader.name}" class="leader-image" style="width: 20px; height: 20px;">
-                                        <span>${entry.team.leader.name}</span>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-
-                        <!-- Score -->
-                        <div class="score-badge ${index < 3 ? `rank-${index + 1}` : ''}">
-                            ${entry.totalScore.toLocaleString()}
-                        </div>
+                        <div class="score-badge">${team.totalScore.toLocaleString()}</div>
                     </div>
                 </div>
-            `;
-        }).join('');
+            `).join('') :
+                '<p class="text-center p-2 text-secondary" data-i18n="noQualifiedTeams">No qualified teams</p>'
+            }
+    </div>
+
+
+
+
+    <!-- Teams with Zero Score Members -->
+    <div class="mb-4">
+        <h4 class="bg-warning text-white p-2 mb-2">
+            <i class="fas fa-exclamation-triangle"></i> 
+            <span data-i18n="zeroScoreTeamsTitle">Zero Score Teams</span> (${this.data.teamsWithZeroScoreMembers.length})
+        </h4>
+        ${this.data.teamsWithZeroScoreMembers.length > 0 ? `
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th data-i18n="team">Team</th>
+                            <th data-i18n="subTeam">Sub-Team</th>
+                            <th data-i18n="leader">Leader</th>
+                            <th data-i18n="count">Count</th>
+                            <th data-i18n="zeroScoreMembers">Zero Score Members</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${this.data.teamsWithZeroScoreMembers.map(teamStat => {
+                const groupedBySubTeam = teamStat.zeroScoreMembers.reduce((groups, member) => {
+                    if (!groups[member.subTeam]) {
+                        groups[member.subTeam] = [];
+                    }
+                    groups[member.subTeam].push(member);
+                    return groups;
+                }, {});
+
+                const subTeamRows = Object.entries(groupedBySubTeam).map(([subTeamName, members], index) => {
+                    const subTeamData = this.getSubTeamData(teamStat.team.id, subTeamName);
+                    let leader = null;
+                    let isTeamLeaderFallback = false;
+
+                    if (subTeamData?.leaderId?.id) {
+                        leader = this.data.leaders?.find(l => l.id === subTeamData.leaderId.id);
+                    }
+
+                    if (!leader && teamStat.team.leader) {
+                        leader = teamStat.team.leader;
+                        isTeamLeaderFallback = true;
+                    }
+
+                    return `
+                                    <tr>
+                                        ${index === 0 ? `
+                                            <td rowspan="${Object.keys(groupedBySubTeam).length}">
+                                                <strong>${teamStat.team.name}</strong>
+                                            </td>
+                                        ` : ''}
+                                        <td>
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-3 h-3 rounded-full" style="background-color: ${subTeamData?.color || '#f59e0b'}"></div>
+                                                <span>${subTeamName}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            ${leader ? `
+                                                <div class="flex items-center gap-2">
+                                                    <img src="${leader.imageBase64 || ImageUtils.getDefaultAvatar(leader.name)}" 
+                                                         alt="${leader.name}" 
+                                                         class="member-image">
+                                                    <div>
+                                                        <span>${leader.name}</span>
+                                                        ${isTeamLeaderFallback ? `
+                                                            <div class="text-xs text-secondary" data-i18n="teamLeader">Team Leader</div>
+                                                        ` : ''}
+                                                    </div>
+                                                </div>
+                                            ` : '<span class="text-secondary" data-i18n="noLeader">No Leader</span>'}
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-warning">${members.length}</span>
+                                        </td>
+                                        <td>
+                                            <div class="member-list">
+                                                ${members.map(member => `
+                                                    <span class="member-tag">${member.name}</span>
+                                                `).join('')}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `;
+                });
+
+                return subTeamRows.join('');
+            }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        ` : `
+            <div class="text-center p-4 text-secondary" data-i18n="allActive">All teams are fully active! 🎉</div>
+        `}
+    </div>
+    `;
+    }
+
+    getSubTeamData(teamId, subTeamName) {
+        // Use the teams data from the leaderboard data
+        const team = this.data.teams?.find(t => t.id === teamId);
+        if (!team?.subTeams) return null;
+
+        // Find the sub-team by name
+        return team.subTeams.find(st => st.name === subTeamName);
+    }
+
+    renderMemberRow(entry, index) {
+        const memberImage = entry.member.imageBase64 ||
+            ImageUtils.getDefaultAvatar(entry.member.name);
+
+        return `
+        <div class="leaderboard-item">
+            <div class="flex items-center gap-4 w-full">
+                <div class="flex items-center gap-3">
+                    <img src="${memberImage}" alt="${entry.member.name}" class="member-image">
+                    <div class="member-info">
+                        <div class="member-name">${entry.member.name}</div>
+                        <div class="text-sm text-secondary">${entry.productCount} products</div>
+                    </div>
+                </div>
+                <div class="flex-1 text-center">${entry.subTeam.name}</div>
+                <div class="flex-1 text-center">${entry.team.name}</div>
+                <div class="score-badge">
+                    ${entry.totalScore.toLocaleString()}
+                </div>
+            </div>
+        </div>
+    `;
+    }
+
+    renderLeaderRow(leader, index) {
+        const leaderImage = leader.imageBase64 ||
+            ImageUtils.getDefaultAvatar(leader.name);
+
+        return `
+    <div class="leaderboard-item">
+        <div class="flex items-center gap-4 w-full">
+            <div class="flex items-center gap-3">
+
+                <img src="${leaderImage}" alt="${leader.name}" class="member-image">
+                <div>
+                    <strong>${leader.name}</strong>
+                    <div class="text-sm text-secondary">
+                        ${leader.team.name} - ${leader.teamMembers} <span data-i18n="availableMembers">available members</span>
+                        ${leader.unavailableMembers > 0 ?
+                ` (${leader.unavailableMembers} <span data-i18n="unavailable">unavailable</span>)` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="score-badge">
+                ${leader.teamScore.toLocaleString()}
+            </div>
+        </div>
+    </div>
+    `;
     }
 
     attachEventListeners() {
@@ -185,13 +331,6 @@ export class LeaderboardComponent {
                 this.selectedDate = '';
                 await this.render(document.getElementById('main-content'));
             });
-        }
-        const refreshBtn = document.getElementById('refresh-leaderboard');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', async () => {
-                refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-                await this.render(document.getElementById('main-content'));
-            });
-        }
+        }       
     }
 }

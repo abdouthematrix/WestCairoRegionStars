@@ -526,87 +526,204 @@ export class FirestoreService {
 
     buildLeaderboard(scores, teams, leaders) {
         const memberScores = new Map();
+        const unavailableMembers = new Set(); // Track unavailable members
         const leadersMap = new Map(leaders.map(l => [l.id, l]));
 
-        // Filter and aggregate scores
-        const validScores = scores.filter(score =>
-            !score.unavailable &&
-            score.reviewedScores &&
-            Object.keys(score.reviewedScores).length > 0
-        );
-
-        // Group scores by member
-        validScores.forEach(score => {
+        // Process all scores to track unavailable members and build member scores
+        scores.forEach(score => {
             const key = `${score.teamId}-${score.subTeamId}-${score.memberId}`;
-            if (!memberScores.has(key)) {
-                memberScores.set(key, {
-                    teamId: score.teamId,
-                    subTeamId: score.subTeamId,
-                    memberId: score.memberId,
-                    totalScore: 0,
-                    scores: {}
-                });
+
+            // Track unavailable members
+            if (score.unavailable) {
+                unavailableMembers.add(key);
+                return; // Skip processing unavailable member scores
             }
 
-            const memberScore = memberScores.get(key);
-            Object.entries(score.reviewedScores).forEach(([product, points]) => {
-                if (typeof points === 'number') {
-                    memberScore.scores[product] = (memberScore.scores[product] || 0) + points;
-                    memberScore.totalScore += points;
+            // Only process available members with reviewed scores
+            if (score.reviewedScores && Object.keys(score.reviewedScores).length > 0) {
+                if (!memberScores.has(key)) {
+                    memberScores.set(key, {
+                        teamId: score.teamId,
+                        subTeamId: score.subTeamId,
+                        memberId: score.memberId,
+                        totalScore: 0,
+                        scores: {},
+                        productCount: 0
+                    });
                 }
-            });
+
+                const memberScore = memberScores.get(key);
+                Object.entries(score.reviewedScores).forEach(([product, points]) => {
+                    if (typeof points === 'number') {
+                        if (!memberScore.scores[product]) {
+                            memberScore.scores[product] = 0;
+                        }
+                        memberScore.scores[product] += points;
+                        memberScore.totalScore += points;
+                    }
+                });
+
+                // Count products with scores > 0
+                memberScore.productCount = Object.values(memberScore.scores)
+                    .filter(score => score > 0).length;
+            }
         });
 
-        // Build leaderboard entries with member, team, and leader info
-        const leaderboardEntries = [];
+        // Build all member entries with complete info
+        const allMemberEntries = [];
+        const teamStats = new Map(); // Track team performance
 
         teams.forEach(team => {
             const teamLeader = leadersMap.get(team.leaderId?.id);
+            let teamTotalMembers = 0;
+            let teamAvailableMembers = 0;
+            let teamActiveMembers = 0;
+            let teamZeroScoreMembers = [];
 
             team.subTeams?.forEach(subTeam => {
                 const subTeamLeader = leadersMap.get(subTeam.leaderId?.id);
 
                 subTeam.members?.forEach(member => {
                     const key = `${team.id}-${subTeam.id}-${member.id}`;
-                    const memberScore = memberScores.get(key);
+                    teamTotalMembers++;
 
-                    leaderboardEntries.push({
-                        member: {
-                            id: member.id,
-                            name: member.name,
-                            position: member.position,
-                            imageBase64: member.imageBase64
-                        },
-                        subTeam: {
-                            id: subTeam.id,
-                            name: subTeam.name,
-                            color: subTeam.color,
-                            leader: subTeamLeader ? {
-                                id: subTeamLeader.id,
-                                name: subTeamLeader.name,
-                                imageBase64: subTeamLeader.imageBase64
-                            } : null
-                        },
-                        team: {
-                            id: team.id,
-                            name: team.name,
-                            number: team.number,
-                            leader: teamLeader ? {
-                                id: teamLeader.id,
-                                name: teamLeader.name,
-                                imageBase64: teamLeader.imageBase64
-                            } : null
-                        },
-                        totalScore: memberScore?.totalScore || 0,
-                        scores: memberScore?.scores || {}
-                    });
+                    // Check if member is unavailable
+                    const isUnavailable = unavailableMembers.has(key);
+
+                    if (!isUnavailable) {
+                        teamAvailableMembers++;
+                        const memberScore = memberScores.get(key);
+
+                        const entry = {
+                            member: {
+                                id: member.id,
+                                name: member.name,
+                                position: member.position,
+                                imageBase64: member.imageBase64
+                            },
+                            subTeam: {
+                                id: subTeam.id,
+                                name: subTeam.name,
+                                color: subTeam.color,
+                                leader: subTeamLeader ? {
+                                    id: subTeamLeader.id,
+                                    name: subTeamLeader.name,
+                                    imageBase64: subTeamLeader.imageBase64
+                                } : null
+                            },
+                            team: {
+                                id: team.id,
+                                name: team.name,
+                                number: team.number,
+                                leader: teamLeader ? {
+                                    id: teamLeader.id,
+                                    name: teamLeader.name,
+                                    imageBase64: teamLeader.imageBase64
+                                } : null
+                            },
+                            totalScore: memberScore?.totalScore || 0,
+                            scores: memberScore?.scores || {},
+                            productCount: memberScore?.productCount || 0,
+                            isAvailable: true
+                        };
+
+                        allMemberEntries.push(entry);
+
+                        // Track team stats (only for available members)
+                        if (entry.totalScore > 0) {
+                            teamActiveMembers++;
+                        } else {
+                            teamZeroScoreMembers.push({
+                                name: member.name,
+                                subTeam: subTeam.name
+                            });
+                        }
+                    }
                 });
+            });
+
+            // Store team statistics
+            teamStats.set(team.id, {
+                team: {
+                    id: team.id,
+                    name: team.name,
+                    number: team.number,
+                    leader: teamLeader ? {
+                        id: teamLeader.id,
+                        name: teamLeader.name,
+                        imageBase64: teamLeader.imageBase64
+                    } : null
+                },
+                totalMembers: teamTotalMembers,
+                availableMembers: teamAvailableMembers,
+                activeMembers: teamActiveMembers,
+                unavailableCount: teamTotalMembers - teamAvailableMembers,
+                zeroScoreMembers: teamZeroScoreMembers,
+                // Team is qualified if ALL AVAILABLE members have scores > 0
+                allAvailableMembersActive: teamAvailableMembers > 0 && teamZeroScoreMembers.length === 0
             });
         });
 
-        // Sort by total score (descending)
-        leaderboardEntries.sort((a, b) => b.totalScore - a.totalScore);
+        // 1. Achievers (individuals with 2+ products)
+        const achievers = allMemberEntries
+            .filter(entry => entry.productCount >= 2)
+            .sort((a, b) => b.totalScore - a.totalScore);
 
-        return leaderboardEntries;
+        // 2. Active Teams (teams with all AVAILABLE members having scores > 0)
+        const activeTeams = Array.from(teamStats.values())
+            .filter(stat => stat.allAvailableMembersActive)
+            .map(stat => ({
+                ...stat.team,
+                totalMembers: stat.totalMembers,
+                availableMembers: stat.availableMembers,
+                activeMembers: stat.activeMembers,
+                unavailableCount: stat.unavailableCount,
+                // Calculate team total score
+                totalScore: allMemberEntries
+                    .filter(entry => entry.team.id === stat.team.id)
+                    .reduce((sum, entry) => sum + entry.totalScore, 0)
+            }))
+            .sort((a, b) => b.totalScore - a.totalScore);
+
+        // 3. Team Leaders (leaders of qualified teams)
+        const teamLeaders = activeTeams.map(team => ({
+            ...team.leader,
+            team: {
+                id: team.id,
+                name: team.name,
+                number: team.number
+            },
+            teamScore: team.totalScore,
+            teamMembers: team.availableMembers,
+            unavailableMembers: team.unavailableCount
+        })).filter(leader => leader.id); // Only teams with leaders
+
+        // 4. Teams with zero score members (among AVAILABLE members)
+        const teamsWithZeroScoreMembers = Array.from(teamStats.values())
+            .filter(stat => stat.zeroScoreMembers.length > 0)
+            .map(stat => ({
+                team: stat.team,
+                totalMembers: stat.totalMembers,
+                availableMembers: stat.availableMembers,
+                activeMembers: stat.activeMembers,
+                unavailableCount: stat.unavailableCount,
+                zeroScoreCount: stat.zeroScoreMembers.length,
+                zeroScoreMembers: stat.zeroScoreMembers,
+                activeMemberScore: allMemberEntries
+                    .filter(entry => entry.team.id === stat.team.id && entry.totalScore > 0)
+                    .reduce((sum, entry) => sum + entry.totalScore, 0)
+            }))
+            .sort((a, b) => b.zeroScoreCount - a.zeroScoreCount);
+
+        return {
+            achievers,
+            activeTeams,
+            teamLeaders,
+            teamsWithZeroScoreMembers,
+            // Keep original for backward compatibility
+            all: allMemberEntries.sort((a, b) => b.totalScore - a.totalScore),
+            teams,
+            leaders
+        };
     }
 }
