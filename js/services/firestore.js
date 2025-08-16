@@ -561,10 +561,10 @@ export class FirestoreService {
         const leaderboardEntries = [];
 
         teams.forEach(team => {
-            const teamLeader = leadersMap.get(team.leaderId);
+            const teamLeader = leadersMap.get(team.leaderId?.id);
 
             team.subTeams?.forEach(subTeam => {
-                const subTeamLeader = leadersMap.get(subTeam.leaderId);
+                const subTeamLeader = leadersMap.get(subTeam.leaderId?.id);
 
                 subTeam.members?.forEach(member => {
                     const key = `${team.id}-${subTeam.id}-${member.id}`;
