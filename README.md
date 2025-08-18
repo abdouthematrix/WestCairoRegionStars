@@ -1,4 +1,5 @@
-﻿# West Cairo Bank - Sales Leaderboard
+| [WestCairoRegionStars](https://github.com/abdouthematrix/WestCairoRegionStars) | Firebase-based leaderboard for teams | [Live Preview](https://abdouthematrix.github.io/WestCairoRegionStars/) |
+# West Cairo Bank - Sales Leaderboard
 
 A bilingual (Arabic/English) Firebase web application for managing bank sales leaderboards with role-based access control.
 
