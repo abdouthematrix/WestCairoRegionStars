@@ -56,7 +56,7 @@ export class LeaderboardComponent {
                         <span data-i18n="leaderboard">Leaderboard</span>
                     </h1>
 
-                    <!-- ADD THIS FILTER SECTION -->
+                    <!-- FILTER SECTION -->
                     <div class="card mb-4">
                         <div class="card-body">
                             <div class="flex items-center gap-3">
@@ -71,6 +71,11 @@ export class LeaderboardComponent {
                                 <button class="btn btn-primary" id="clear-filter">
                                     <i class="fas fa-times"></i>
                                     <span data-i18n="clear">clear</span>
+                                </button>
+                                <!-- COMBINED PRINT BUTTON -->
+                                <button class="btn btn-success" id="print-all">
+                                    <i class="fas fa-print"></i>
+                                    <span data-i18n="printAll">Print Achievers & Leaders</span>
                                 </button>
                             </div>
                         </div>
@@ -120,7 +125,7 @@ export class LeaderboardComponent {
     ${this.data.teamLeaders.length > 0 ?
                 this.data.teamLeaders.slice(0, 10).map((leader, index) => this.renderLeaderRow(leader, index)).join('') :
                 '<p class="text-center p-2 text-secondary" data-i18n="noQualifiedLeaders">No qualified team leaders</p>'
-        }
+            }
 </div>
 
     <!-- Active Teams Section -->
@@ -148,9 +153,6 @@ export class LeaderboardComponent {
                 '<p class="text-center p-2 text-secondary" data-i18n="noQualifiedTeams">No qualified teams</p>'
             }
     </div>
-
-
-
 
     <!-- Teams with Zero Score Members -->
     <div class="mb-4">
@@ -308,11 +310,275 @@ export class LeaderboardComponent {
     `;
     }
 
+    // Generate print data for achievers
+    generateAchieversPrintData() {
+        if (!this.data.achievers || this.data.achievers.length === 0) {
+            return [];
+        }
+
+        return this.data.achievers.map((achiever, index) => ({
+            name: achiever.member.name,
+            branch: achiever.team.name,
+            img: achiever.member.imageBase64 || `Print/profile${index + 1}.png`
+        }));
+    }
+
+    // Generate print data for leaders
+    generateLeadersPrintData() {
+        if (!this.data.teamLeaders || this.data.teamLeaders.length === 0) {
+            return [];
+        }
+
+        return this.data.teamLeaders.map((leader, index) => ({
+            name: leader.name,
+            branch: leader.team.name,
+            img: leader.imageBase64 || `Print/profile${index + 1}.png`
+        }));
+    }
+
+    // Combined print functionality
+    async printAll() {
+        try {
+            const achieversData = this.generateAchieversPrintData();
+            const leadersData = this.generateLeadersPrintData();
+
+            if (achieversData.length === 0 && leadersData.length === 0) {
+                alert('No achievers or leaders found to print!');
+                return;
+            }
+
+            // Create a new window for printing
+            const printWindow = window.open('', '_blank');
+
+            // Generate the HTML content with both sections
+            const printHTML = this.generateCombinedPrintHTML(achieversData, leadersData);
+
+            printWindow.document.write(printHTML);
+            printWindow.document.close();
+
+            // Wait for images to load then print
+            printWindow.onload = () => {
+                setTimeout(() => {
+                    printWindow.print();
+                    // Optionally close the window after printing
+                    // printWindow.close();
+                }, 1000);
+            };
+
+        } catch (error) {
+            console.error('Error printing:', error);
+            alert('Error preparing print data. Please try again.');
+        }
+    }
+
+    // Generate HTML for combined printing
+    generateCombinedPrintHTML(achieversData, leadersData) {
+        return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Print Achievers & Leaders</title>
+            <style>
+                /* Copy all styles from your Print.html file here */
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                
+                @media print {
+                    body { margin: 0; padding: 0; background: white; font-size: 12pt; }
+                    .page { width: 297mm; height: 210mm; margin: 0; padding: 20mm; page-break-after: always; page-break-inside: avoid; background-size: 100% 100% !important; background-repeat: no-repeat !important; background-position: center !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
+                    .page:last-child { page-break-after: auto; }
+                    @page { size: A4 landscape; margin: 0; }
+                    .print-instructions { display: none; }
+                }
+                
+                @media screen {
+                    body { background: #f0f0f0; padding: 20px; }
+                    .page { width: 297mm; height: 210mm; margin: 0 auto 20px; padding: 20mm; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1); background-size: 100% 100%; background-repeat: no-repeat; background-position: center; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
+                }
+                
+                .page-1 { background-image: url('Print/Page1.jpg'); }
+                .page-2 { background-image: url('Print/Page2.jpg'); }
+                .page-3 { background-image: url('Print/Page3.jpg'); }
+                
+                .print-instructions { background: #3498db; color: white; padding: 15px; text-align: center; margin-bottom: 20px; border-radius: 5px; }
+                
+                .date-page-1 { position: absolute; top: 400px; left: 50px; font-size: 80px; color: #ff8c00; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+                
+                .title-ribbon { position: absolute; top: 15mm; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; width: 300px; height: 80px; }
+                .title-ribbon img { width: 100%; height: auto; object-fit: contain; display: block; }
+                .title-ribbon-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75%; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 60%; pointer-events: none; }
+                .title-ribbon-text { font-size: 24px; font-weight: bold; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); letter-spacing: 1px; line-height: 1.0; }
+                .title-ribbon-fallback { background: linear-gradient(135deg, #b30000, #d40000); border-radius: 25px; border: 3px solid #800000; box-shadow: 0 4px 12px rgba(179, 0, 0, 0.4); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+                
+                .badge-grid { display: grid; gap: 25px 15px; justify-items: center; align-items: center; width: 100%; max-width: 100%; margin: auto; justify-content: center; margin-top: 60px; }
+                .badge-grid.cols-1 { grid-template-columns: 1fr; }
+                .badge-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+                .badge-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+                .badge-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+                .badge-grid.cols-5 { grid-template-columns: repeat(5, 1fr); }
+                
+                .badge { text-align: center; position: relative; width: 100%; max-width: 180px; }
+                .badge-grid.cols-1 .badge { max-width: 250px; }
+                .badge-grid.cols-2 .badge { max-width: 220px; }
+                .badge-grid.cols-3 .badge { max-width: 190px; }
+                .badge-grid.cols-4 .badge { max-width: 160px; }
+                .badge-grid.cols-5 .badge { max-width: 140px; }
+                
+                .circle { border-radius: 50%; overflow: hidden; border: 3px solid #b30000; box-shadow: 0 3px 8px rgba(0,0,0,0.3); margin: 0 auto; background: white; }
+                .badge-grid.cols-1 .circle { width: 200px; height: 200px; }
+                .badge-grid.cols-2 .circle { width: 170px; height: 170px; }
+                .badge-grid.cols-3 .circle { width: 150px; height: 150px; }
+                .badge-grid.cols-4 .circle { width: 130px; height: 130px; }
+                .badge-grid.cols-5 .circle { width: 110px; height: 110px; }
+                .circle img { width: 100%; height: 100%; object-fit: cover; display: block; }
+                
+                .ribbon { position: relative; display: block; margin: 8px auto 0; }
+                .badge-grid.cols-1 .ribbon { width: 220px; height: 70px; }
+                .badge-grid.cols-2 .ribbon { width: 190px; height: 60px; }
+                .badge-grid.cols-3 .ribbon { width: 170px; height: 55px; }
+                .badge-grid.cols-4 .ribbon { width: 150px; height: 50px; }
+                .badge-grid.cols-5 .ribbon { width: 130px; height: 45px; }
+                .ribbon img { width: 100%; height: auto; object-fit: contain; display: block; }
+                
+                .ribbon-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75%; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 60%; pointer-events: none; overflow: hidden; }
+                .ribbon-name { font-weight: bold; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); line-height: 1.0; margin-bottom: 2px; word-wrap: break-word; overflow-wrap: break-word; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+                .ribbon-branch { font-weight: bold; color: rgba(255,255,255,0.95); text-shadow: 1px 1px 2px rgba(0,0,0,0.8); line-height: 1.0; word-wrap: break-word; overflow-wrap: break-word; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+                
+                .badge-grid.cols-1 .ribbon-name { font-size: 14px; max-height: 28px; }
+                .badge-grid.cols-2 .ribbon-name { font-size: 12px; max-height: 24px; }
+                .badge-grid.cols-3 .ribbon-name { font-size: 11px; max-height: 22px; }
+                .badge-grid.cols-4 .ribbon-name { font-size: 10px; max-height: 20px; }
+                .badge-grid.cols-5 .ribbon-name { font-size: 9px; max-height: 18px; }
+                
+                .badge-grid.cols-1 .ribbon-branch { font-size: 11px; max-height: 22px; }
+                .badge-grid.cols-2 .ribbon-branch { font-size: 10px; max-height: 20px; }
+                .badge-grid.cols-3 .ribbon-branch { font-size: 9px; max-height: 18px; }
+                .badge-grid.cols-4 .ribbon-branch { font-size: 8px; max-height: 16px; }
+                .badge-grid.cols-5 .ribbon-branch { font-size: 7px; max-height: 14px; }
+                
+                .ribbon-fallback { background: linear-gradient(135deg, #b30000, #d40000); border-radius: 20px; border: 2px solid #800000; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
+                .ribbon-fallback .ribbon-content { position: static; transform: none; width: 90%; height: 80%; }
+
+                /* Leader-specific styles */
+                .leader-circle { border: 3px solid #007bff; }
+                .leader-title-ribbon-text { color: white; }
+            </style>
+        </head>
+        <body>
+            <div class="print-instructions">
+                <strong>Print Instructions:</strong> Use Ctrl+P (Cmd+P on Mac) → More Settings → Paper Size: A4 → Layout: Landscape → Margins: None → Background Graphics: ON
+            </div>
+            
+            <div class="page page-1">
+                <div class="date-page-1">${this.formatDate(new Date())}</div>
+            </div>
+            
+            <div id="content-pages"></div>
+            
+            <div class="page page-3"></div>
+
+            <script>
+                const achieversData = ${JSON.stringify(achieversData)};
+                const leadersData = ${JSON.stringify(leadersData)};
+                
+                function getOptimalLayout(badgeCount) {
+                    if (badgeCount === 1) return { cols: 1, rows: 1, perPage: 1 };
+                    if (badgeCount === 2) return { cols: 2, rows: 1, perPage: 2 };
+                    if (badgeCount <= 6) return { cols: 3, rows: 2, perPage: 6 };
+                    if (badgeCount <= 8) return { cols: 4, rows: 2, perPage: 8 };
+                    return { cols: 5, rows: 2, perPage: 10 };
+                }
+                
+                function createBadgePages(badges, titleText, isLeaders = false) {
+                    const pages = [];
+                    
+                    for (let i = 0; i < badges.length;) {
+                        const remainingBadges = badges.length - i;
+                        const layout = getOptimalLayout(remainingBadges);
+                        const badgesToShow = Math.min(layout.perPage, remainingBadges);
+
+                        const page = document.createElement("div");
+                        page.className = "page page-2";
+
+                        const titleRibbon = document.createElement("div");
+                        titleRibbon.className = "title-ribbon";
+                        titleRibbon.innerHTML = \`
+                            <img src="Print/ribbon.png" alt="Title Ribbon" onerror="this.parentElement.classList.add('title-ribbon-fallback')">
+                            <div class="title-ribbon-content">
+                                <div class="title-ribbon-text">\${titleText}</div>
+                            </div>
+                        \`;
+                        page.appendChild(titleRibbon);
+
+                        const grid = document.createElement("div");
+                        grid.className = \`badge-grid cols-\${layout.cols}\`;
+
+                        badges.slice(i, i + badgesToShow).forEach(badge => {
+                            const badgeElement = document.createElement("div");
+                            badgeElement.className = "badge";
+
+                            const circleClass = isLeaders ? "circle leader-circle" : "circle";
+
+                            badgeElement.innerHTML = \`
+                                <div class="\${circleClass}">
+                                    <img src="\${badge.img}" alt="\${badge.name}" onerror="this.style.display='none'">
+                                </div>
+                                <div class="ribbon">
+                                    <img src="Print/ribbon.png" alt="Ribbon" onerror="this.parentElement.classList.add('ribbon-fallback')">
+                                    <div class="ribbon-content">
+                                        <div class="ribbon-name">\${badge.name}</div>
+                                        <div class="ribbon-branch">\${badge.branch}</div>
+                                    </div>
+                                </div>
+                            \`;
+                            grid.appendChild(badgeElement);
+                        });
+
+                        page.appendChild(grid);
+                        pages.push(page);
+                        i += badgesToShow;
+                    }
+                    
+                    return pages;
+                }
+                
+                const container = document.getElementById("content-pages");
+                
+                // Add achievers pages
+                if (achieversData.length > 0) {
+                    const achieverPages = createBadgePages(achieversData, "نجوم خدمة العملاء", false);
+                    achieverPages.forEach(page => container.appendChild(page));
+                }
+                
+                // Add leaders pages
+                if (leadersData.length > 0) {
+                    const leaderPages = createBadgePages(leadersData, "قادة الفرق المتميزين", true);
+                    leaderPages.forEach(page => container.appendChild(page));
+                }
+            </script>
+        </body>
+        </html>
+        `;
+    }
+
+    // Helper method to format date
+    formatDate(d) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
     attachEventListeners() {
-        // ADD THESE EVENT LISTENERS
+        // Existing event listeners
         const dateFilter = document.getElementById('date-filter');
         const filterBtn = document.getElementById('filter-leaderboard');
         const clearBtn = document.getElementById('clear-filter');
+
+        // Combined print button event listener
+        const printAllBtn = document.getElementById('print-all');
 
         if (dateFilter) {
             dateFilter.addEventListener('change', () => {
@@ -331,6 +597,13 @@ export class LeaderboardComponent {
                 this.selectedDate = '';
                 await this.render(document.getElementById('main-content'));
             });
-        }       
+        }
+
+        // Combined print event listener
+        if (printAllBtn) {
+            printAllBtn.addEventListener('click', () => {
+                this.printAll();
+            });
+        }
     }
 }
